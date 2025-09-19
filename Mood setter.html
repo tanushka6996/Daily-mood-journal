@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Mood Journal</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+    }
+    #controls {
+        margin-bottom: 10px;
+    }
+    #moodContainer {
+        margin-top: 20px;
+        position: relative;
+        height: 400px;
+        width: 100%;
+        border: 2px solid #ccc;
+        display: flex;
+        flex-wrap: wrap;
+        padding: 10px;
+        overflow-y: auto;
+    }
+    .moodBox {
+        width: 120px;
+        height: 50px;
+        line-height: 20px;
+        color: black;
+        border-radius: 8px;
+        margin: 5px;
+        cursor: grab;
+        user-select: none;
+        position: relative;
+        padding: 5px;
+        box-sizing: border-box;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .deleteBtn {
+        background: #ff4d4d;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    button {
+        margin: 5px;
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+    select, input[type="time"] {
+        padding: 5px;
+        font-size: 14px;
+    }
+</style>
+</head>
+<body>
+
+<h1>Daily Mood Journal</h1>
+
+<div id="controls">
+    <select id="moodSelect">
+        <option value="Happy">Happy</option>
+        <option value="Sad">Sad</option>
+        <option value="Relaxed">Relaxed</option>
+        <option value="Excited">Excited</option>
+        <option value="Tired">Tired</option>
+        <option value="Angry">Angry</option>
+    </select>
+    <button onclick="addMood()">Add Mood</button>
+    <button onclick="searchMood()">Search Mood</button>
+    <br><br>
+    <label for="reminderTime">Set Daily Reminder: </label>
+    <input type="time" id="reminderTime" value="20:00">
+    <button onclick="setReminder()">Set Reminder</button>
+</div>
+
+<div id="moodContainer"></div>
+
+<script>
+let moods = [];
+let moodColors = {
+    Happy: "yellow",
+    Sad: "lightblue",
+    Relaxed: "green",
+    Excited: "orange",
+    Tired: "gray",
+    Angry: "red"
+};
+
+let reminderHour = 20;
+let reminderMinute = 0;
+
+function addMood() {
+    const select = document.getElementById("moodSelect");
+    let mood = select.value;
+    let color = moodColors[mood] || "lightgrey";
+
+    let box = document.createElement("div");
+    box.className = "moodBox";
+    box.style.backgroundColor = color;
+
+    // Add mood text
+    let span = document.createElement("span");
+    span.textContent = mood;
+    box.appendChild(span);
+
+    // Add delete button
+    let delBtn = document.createElement("button");
+    delBtn.className = "deleteBtn";
+    delBtn.textContent = "x";
+    delBtn.onclick = function() {
+        box.remove();
+        // Remove from localStorage
+        moods = moods.filter(entry => !(entry.time === timestamp && entry.mood === mood));
+        localStorage.setItem("moodJournal", JSON.stringify(moods));
+    };
+    box.appendChild(delBtn);
+
+    document.getElementById("moodContainer").appendChild(box);
+    makeDraggable(box);
+
+    let timestamp = new Date().toLocaleString();
+    moods.push({time: timestamp, mood: mood, color: color});
+    localStorage.setItem("moodJournal", JSON.stringify(moods));
+}
+
+function makeDraggable(el) {
+    let offsetX, offsetY, isDragging = false;
+    el.onmousedown = function(e) {
+        isDragging = true;
+        offsetX = e.clientX - el.offsetLeft;
+        offsetY = e.clientY - el.offsetTop;
+        el.style.position = "absolute";
+        el.style.zIndex = 1000;
+        document.body.append(el);
+        moveAt(e.pageX, e.pageY);
+        document.onmousemove = drag;
+        document.onmouseup = stopDrag;
+    };
+
+    function moveAt(pageX, pageY) {
+        el.style.left = pageX - offsetX + 'px';
+        el.style.top = pageY - offsetY + 'px';
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        moveAt(e.pageX, e.pageY);
+    }
+
+    function stopDrag() {
+        isDragging = false;
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+}
+
+function searchMood() {
+    let keyword = prompt("Enter mood to search:");
+    if (!keyword) return;
+
+    let savedMoods = JSON.parse(localStorage.getItem("moodJournal")) || [];
+    let results = savedMoods.filter(entry => entry.mood.toLowerCase().includes(keyword.toLowerCase()));
+
+    if (results.length) {
+        alert("Found entries:\n" + results.map(r => r.time + " - " + r.mood).join("\n"));
+    } else {
+        alert("No entries found for '" + keyword + "'.");
+    }
+}
+
+function setReminder() {
+    let timeInput = document.getElementById("reminderTime").value;
+    [reminderHour, reminderMinute] = timeInput.split(":").map(Number);
+    alert(`Daily reminder set for ${reminderHour.toString().padStart(2,'0')}:${reminderMinute.toString().padStart(2,'0')}`);
+}
+
+// Daily Reminder check
+setInterval(() => {
+    let now = new Date();
+    if (now.getHours() === reminderHour && now.getMinutes() === reminderMinute) {
+        alert("Don't forget to log your mood today!");
+    }
+}, 60000);
+
+// Load saved moods
+window.onload = function() {
+    let savedMoods = JSON.parse(localStorage.getItem("moodJournal")) || [];
+    savedMoods.forEach(entry => {
+        let box = document.createElement("div");
+        box.className = "moodBox";
+        box.style.backgroundColor = entry.color || "lightgrey";
+
+        let span = document.createElement("span");
+        span.textContent = entry.mood;
+        box.appendChild(span);
+
+        let delBtn = document.createElement("button");
+        delBtn.className = "deleteBtn";
+        delBtn.textContent = "x";
+        delBtn.onclick = function() {
+            box.remove();
+            moods = moods.filter(e => !(e.time === entry.time && e.mood === entry.mood));
+            localStorage.setItem("moodJournal", JSON.stringify(moods));
+        };
+        box.appendChild(delBtn);
+
+        document.getElementById("moodContainer").appendChild(box);
+        makeDraggable(box);
+        moods.push(entry);
+    });
+};
+</script>
+
+</body>
+</html>
